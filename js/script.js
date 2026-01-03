@@ -1,7 +1,40 @@
 const scene = document.getElementById('scene');
 const sceneContext = scene.getContext('2d');
+const controller = document.getElementById('controller');
 
-const state = {};
+scene.addEventListener('click', () => controller.focus());
+
+const controllerState = {
+  prHor: '',
+  prVert: '',
+}
+
+const state = {
+  posX: 100,
+  posY: 100,
+};
+
+function getState() {
+  switch(controllerState.prHor) {
+    case 'ArrowRight':
+      state.posX += 3;
+      break;
+    case 'ArrowLeft':
+      state.posX -= 3;
+      break;
+  }
+
+  switch(controllerState.prVert) {
+    case 'ArrowUp':
+      state.posY -= 5;
+      break;
+    case 'ArrowDown':
+      state.posY += 5;
+      break;
+  }
+
+  return state;
+}
 
 class StarsRenderer {
   stars = [];
@@ -39,6 +72,74 @@ class StarsRenderer {
       }
             
       this.renderStar(star.x, star.y);
+    });
+  }
+}
+
+const ASTEROID_TEMPLATE_COLORS = {
+    1: 'grey',
+    2: 'green',
+    3: 'red'
+}
+
+const ASTEROID_TEMPLATE_DEFAULT = [
+  [0, 0, 0, 1, 1, 1, 0, 0, 0],
+  [0, 1, 1, 1, 1, 2, 1, 1, 0],
+  [0, 1, 1, 1, 3, 2, 2, 1, 0],
+  [1, 1, 1, 1, 3, 1, 2, 2, 1],
+  [1, 1, 3, 3, 3, 3, 3, 2, 1],
+  [1, 1, 1, 1, 3, 1, 2, 2, 1],
+  [0, 1, 1, 1, 3, 2, 2, 2, 0],
+  [0, 1, 1, 1, 1, 2, 1, 1, 0],
+  [0, 0, 0, 1, 1, 1, 0, 0, 0],
+];
+
+class AsteroidsRenderer {
+  asteroids = [];
+  constructor(context, template, colorsMap, sceneWidth, sceneHeight) {
+    this.context = context;
+    this.template = template;
+    this.colorsMap = colorsMap;
+    this.sceneWidth = sceneWidth;
+    this.sceneHeight = sceneHeight - 40;
+
+    this.generateAsteroids();
+  }
+
+  generateAsteroids = () => {
+    for(let y = 0; y < this.sceneHeight; y++) {
+      for(let x = this.sceneWidth; x < this.sceneWidth * 5; x++) {
+        const random = getRandomInt(30000);
+        if(random === 100) {
+          this.asteroids.push({ x, y })
+        }
+      }
+    }
+  }
+
+  renderAsteroid = (x, y, coef) => {
+    for (let j = 0; j < this.template.length; j++) {
+      const row = this.template[j];
+
+      for (let i = 0; i < row.length; i++) {
+        const cell = row[i];
+
+        if (cell === 0) continue;
+
+        this.context.fillStyle = this.colorsMap[cell];
+        this.context.fillRect(x + (i * coef), y + (j * coef), coef, coef);
+      }
+    }
+  }
+
+
+  moveAsteroids = () => {
+    this.asteroids.forEach((asteroid) => {
+      if (asteroid.x === -40)
+        asteroid.x = asteroid.initX;
+      else
+        asteroid.x -= 2;
+        this.renderAsteroid(asteroid.x, asteroid.y, 2);
     });
   }
 }
@@ -96,15 +197,16 @@ function clearScene(context) {
   context.fillRect(0, 0, 1000, 600);
 }
 
-function getSceneTimer(functions, context, state, int = 100) {
+function getSceneTimer(functions, context, getState, int = 100) {
   let start = 0;
 
   function sceneTimer(timeStamp) {
     const deltaTime = timeStamp - start;
 
     if (deltaTime >= int) {
+      const currentState = getState();
       start = timeStamp;
-      functions.forEach((fn) => fn(context, state));
+      functions.forEach((fn) => fn(context, currentState));
     }
     requestAnimationFrame(sceneTimer);
   }
@@ -118,6 +220,8 @@ function getSceneTimer(functions, context, state, int = 100) {
 
 
 function initGame() {
+  controller.focus();
+
   const starsRenderer = new StarsRenderer(
     sceneContext,
     1000,
@@ -129,12 +233,68 @@ function initGame() {
     STARSHIP_TEMPLATE_DEFAULT,
     STARSHIP_TEMPLATE_COLORS
   );
+
+  const asteroidsRenderer = new AsteroidsRenderer(
+    sceneContext,
+    ASTEROID_TEMPLATE_DEFAULT,
+    ASTEROID_TEMPLATE_COLORS,
+    1000,
+    600,
+  )
+
+  const keydownActionsMap = {
+    ArrowUp: () => {
+      controllerState.prVert = 'ArrowUp';
+    },
+    ArrowDown: () => {
+      controllerState.prVert = 'ArrowDown';
+    },
+    ArrowRight: () => {
+      controllerState.prHor = 'ArrowRight';
+    },
+    ArrowLeft: () => {
+      controllerState.prHor = 'ArrowLeft';
+    },
+  };
+
+  const keyupActionsMap = {
+    ArrowUp: () => {
+      controllerState.prVert = '';
+    },
+    ArrowDown: () => {
+      controllerState.prVert = '';
+    },
+    ArrowRight: () => {
+      controllerState.prHor = '';
+    },
+    ArrowLeft: () => {
+      controllerState.prHor = '';
+    },
+  };
+
+  function handleKeyDown(event) {
+    keydownActionsMap[event.code]?.();
+  }
+
+  function handleKeyUp(event) {
+    keyupActionsMap[event.code]?.();
+  }
+
+  controller.addEventListener('keydown', handleKeyDown);
+  controller.addEventListener('keyup', handleKeyUp);
+
   const renderFns = [
     clearScene,
     starsRenderer.moveStars,
-    (_, currentState) => starshipRenderer.renderStarship(100, 100, 3),  
+    (_, currentState) => starshipRenderer.renderStarship(currentState.posX, currentState.posY, 3),
+    asteroidsRenderer.moveAsteroids
   ];
-  const sceneTimer = getSceneTimer(renderFns, sceneContext, state, 10);
+  const sceneTimer = getSceneTimer(
+    renderFns,
+    sceneContext,
+    getState,
+    10
+  );
 
   sceneTimer();
 }
