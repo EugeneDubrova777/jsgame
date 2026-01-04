@@ -109,7 +109,7 @@ class AsteroidsRenderer {
   generateAsteroids = () => {
     for(let y = 0; y < this.sceneHeight; y++) {
       for(let x = this.sceneWidth; x < this.sceneWidth * 5; x++) {
-        const random = getRandomInt(30000);
+        const random = getRandomInt(10000);
         if(random === 100) {
           this.asteroids.push({ x, y })
         }
@@ -204,13 +204,14 @@ class ShotsRenderer {
     this.context.fillRect(x, y, 5, 3);
   }
 
-  moveShots = () => {
+  moveShots = (onShots) => {
     this.shots.forEach((shot) => {
       if (shot.x < this.sceneWidth) {
         shot.x += 10;
         this.renderShot(shot.x, shot.y);
       }
-    })
+    });
+    onShots();
   }
 }
 
@@ -322,7 +323,21 @@ function initGame() {
     starsRenderer.moveStars,
     (_, currentState) => starshipRenderer.renderStarship(currentState.posX, currentState.posY, 3),
     asteroidsRenderer.moveAsteroids,
-    shotsRenderer.moveShots,
+    () => {
+      shotsRenderer.moveShots(() => {
+        shotsRenderer.shots.forEach((shot) => {
+          const foundAstIndex = asteroidsRenderer.asteroids.findIndex((asteroid) => {
+            return (shot.x >= asteroid.x && shot.x <= asteroid.x + 10) && (shot.y >= asteroid.y && shot.y <= asteroid.y + 80);
+          });
+
+          if (foundAstIndex > -1) {
+            const asteroid = asteroidsRenderer.asteroids[foundAstIndex];
+            asteroid.x = asteroid.initX;
+            shot.y = 610;
+          }
+        });
+      });
+    }
   ];
   const sceneTimer = getSceneTimer(
     renderFns,
