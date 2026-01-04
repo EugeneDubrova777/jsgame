@@ -188,6 +188,32 @@ class StarshipRenderer {
   }
 }
 
+class ShotsRenderer {
+  shots = [];
+  constructor(context, sceneWidth) {
+    this.context = context;
+    this.sceneWidth = sceneWidth + 10;
+  }
+
+  addShot = (x, y) => {
+    this.shots.push({ x, y });
+  }
+
+  renderShot = (x, y) => {
+    this.context.fillStyle = 'yellow';
+    this.context.fillRect(x, y, 5, 3);
+  }
+
+  moveShots = () => {
+    this.shots.forEach((shot) => {
+      if (shot.x < this.sceneWidth) {
+        shot.x += 10;
+        this.renderShot(shot.x, shot.y);
+      }
+    })
+  }
+}
+
 function getRandomInt(max) {
   return Math.floor(Math.random() * max);
 }
@@ -240,6 +266,11 @@ function initGame() {
     ASTEROID_TEMPLATE_COLORS,
     1000,
     600,
+  );
+
+  const shotsRenderer = new ShotsRenderer(
+    sceneContext,
+    1000,
   )
 
   const keydownActionsMap = {
@@ -255,6 +286,9 @@ function initGame() {
     ArrowLeft: () => {
       controllerState.prHor = 'ArrowLeft';
     },
+    Space: () => {
+      shotsRenderer.addShot(state.posX + 20, state.posY + 15);
+    }
   };
 
   const keyupActionsMap = {
@@ -287,7 +321,8 @@ function initGame() {
     clearScene,
     starsRenderer.moveStars,
     (_, currentState) => starshipRenderer.renderStarship(currentState.posX, currentState.posY, 3),
-    asteroidsRenderer.moveAsteroids
+    asteroidsRenderer.moveAsteroids,
+    shotsRenderer.moveShots,
   ];
   const sceneTimer = getSceneTimer(
     renderFns,
